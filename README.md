@@ -4,7 +4,7 @@
 
 ## 使用方法
 
-**【重要】请务必自行搭建Edu-Auth服务，请确保从本项目的Release页面下载由github-actions自动构建的二进制程序，请勿使用他人提供的公共服务。**
+**【重要】请务必自行搭建Edu-Auth服务，请确保从本项目的[Release](https://github.com/Dainsleif233/Edu-Auth/releases)页面下载由github-actions自动构建的二进制程序，请勿使用他人提供的公共服务。**
 
 启动命令
 

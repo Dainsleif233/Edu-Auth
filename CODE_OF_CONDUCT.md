@@ -36,7 +36,7 @@
 
 - [ ] **声明嵌入**：在 `README.md` 首行添加：
 
-  > "本衍生作品基于 [原始项目名] 构建，遵循 AGPL-3.0 协议"
+  > "本衍生作品基于 [Dainsleif233/Edu-Auth](https://github.com/Dainsleif233/Edu-Auth) 构建，遵循 AGPL-3.0 协议"
 
 ### 2. API 服务声明
 
