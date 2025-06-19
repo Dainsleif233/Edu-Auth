@@ -48,6 +48,9 @@ func main() {
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
+		w.Header().Set("X-Source-Code", "https://github.com/Dainsleif233/Edu-Auth")
+		w.Header().Set("X-License", "AGPL-3.0")
+
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
