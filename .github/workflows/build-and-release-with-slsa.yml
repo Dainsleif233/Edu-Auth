@@ -2,7 +2,9 @@ name: Build and Release with SLSA
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 permissions:
   contents: write
@@ -11,8 +13,11 @@ permissions:
   attestations: write
 
 jobs:
-  goreleaser:
+  build:
     runs-on: ubuntu-latest
+    outputs:
+      hashes: ${{ steps.hash.outputs.hashes }}
+      commit-message: ${{ steps.commit.outputs.message }}
     
     steps:
     - name: Checkout code
@@ -23,7 +28,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.21'
+        go-version: '1.24'
 
     - name: Get commit message
       id: commit
@@ -54,17 +59,32 @@ jobs:
         GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
         GITHUB_REPOSITORY_NAME: ${{ github.event.repository.name }}
 
-    - name: Generate SLSA Provenance
-      uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.10.0
-      with:
-        base64-subjects: ${{ needs.goreleaser.outputs.hashes }}
-        upload-assets: true
-
-    - name: Download release artifacts and add SHA1 checksums
+    - name: Generate artifact hashes for SLSA
+      id: hash
       run: |
-        # 获取release ID
-        RELEASE_ID=$(gh api repos/${{ github.repository }}/releases/tags/Latest --jq '.id')
+        # 下载刚发布的assets来生成hash
+        mkdir -p temp_assets
+        gh release download Latest --dir temp_assets
         
+        cd temp_assets
+        HASHES=""
+        for file in edu-auth-*; do
+          if [ -f "$file" ]; then
+            HASH=$(sha256sum "$file" | cut -d' ' -f1)
+            if [ -z "$HASHES" ]; then
+              HASHES="${file}:${HASH}"
+            else
+              HASHES="${HASHES}\n${file}:${HASH}"
+            fi
+          fi
+        done
+        
+        echo "hashes=$(echo -e "$HASHES" | base64 -w0)" >> $GITHUB_OUTPUT
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Generate SHA1 checksums
+      run: |
         # 下载所有release资产
         mkdir -p temp_assets
         gh release download Latest --dir temp_assets
@@ -84,13 +104,13 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   provenance:
-    needs: [goreleaser]
+    needs: [build]
     permissions:
       actions: read
       id-token: write
       contents: write
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.10.0
     with:
-      base64-subjects: ${{ needs.goreleaser.outputs.hashes }}
+      base64-subjects: ${{ needs.build.outputs.hashes }}
       upload-assets: true
       upload-tag-name: Latest
