@@ -36,17 +36,27 @@ jobs:
         COMMIT_MSG=$(git log -1 --pretty=%B)
         echo "message=$COMMIT_MSG" >> $GITHUB_OUTPUT
 
-    - name: Delete existing Latest release and tag
+    - name: Clean up existing Latest release and tag
       run: |
-        gh release delete Latest --yes || true
-        git push origin :refs/tags/Latest || true
+        # 删除release（如果存在）
+        gh release delete Latest --yes 2>/dev/null || echo "Release Latest not found"
+        
+        # 强制删除远程标签
+        git push origin :refs/tags/Latest 2>/dev/null || echo "Remote tag Latest not found"
+        
+        # 强制删除本地标签
+        git tag -d Latest 2>/dev/null || echo "Local tag Latest not found"
+        
+        # 等待确保GitHub API同步
+        sleep 3
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Create Latest tag
+    - name: Create and push Latest tag
       run: |
-        git tag Latest
-        git push origin Latest
+        # 强制创建标签
+        git tag -f Latest
+        git push -f origin Latest
 
     - name: Create release notes file
       run: |
@@ -66,6 +76,9 @@ jobs:
     - name: Generate artifact hashes for SLSA
       id: hash
       run: |
+        # 等待release创建完成
+        sleep 5
+        
         # 下载刚发布的assets来生成hash
         mkdir -p temp_assets
         gh release download Latest --dir temp_assets
