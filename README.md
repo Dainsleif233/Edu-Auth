@@ -38,6 +38,8 @@
 
 各接口api文件位于auths/
 
+资源文件位于auths/assets/,使用go:embed导入
+
 api文件名为`${id}.go`
 
 id以蛇形命名法命名（所有单词小写，单词间用_间隔）

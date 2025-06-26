@@ -39,6 +39,7 @@ func callAuth(funcName, login, password string) uint8 {
 func main() {
 
 	RegisterFunction(auths.Eduroam)
+	RegisterFunction(auths.Ujs)
 
 	args := os.Args
 	address := "127.0.0.1:2266"
