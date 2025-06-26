@@ -108,9 +108,6 @@ publishers:
     cmd: |
       gh release upload {{ .Tag }} {{ .ArtifactPath }}
 
-slsa:
-  enable: true
-
 dist: dist
 
 before:
