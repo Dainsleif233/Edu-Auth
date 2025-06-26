@@ -1,0 +1,96 @@
+name: Build and Release with SLSA
+
+on:
+  push:
+    branches: [ main, master ]
+
+permissions:
+  contents: write
+  id-token: write
+  actions: read
+  attestations: write
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+
+    - name: Get commit message
+      id: commit
+      run: |
+        COMMIT_MSG=$(git log -1 --pretty=%B)
+        echo "message=$COMMIT_MSG" >> $GITHUB_OUTPUT
+
+    - name: Delete existing Latest release and tag
+      run: |
+        gh release delete Latest --yes || true
+        git push origin :refs/tags/Latest || true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Create Latest tag
+      run: |
+        git tag Latest
+        git push origin Latest
+
+    - name: Run GoReleaser
+      uses: goreleaser/goreleaser-action@v5
+      with:
+        distribution: goreleaser
+        version: '~> v1'
+        args: release --clean --release-notes <(echo "${{ steps.commit.outputs.message }}")
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+        GITHUB_REPOSITORY_NAME: ${{ github.event.repository.name }}
+
+    - name: Generate SLSA Provenance
+      uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.10.0
+      with:
+        base64-subjects: ${{ needs.goreleaser.outputs.hashes }}
+        upload-assets: true
+
+    - name: Download release artifacts and add SHA1 checksums
+      run: |
+        # 获取release ID
+        RELEASE_ID=$(gh api repos/${{ github.repository }}/releases/tags/Latest --jq '.id')
+        
+        # 下载所有release资产
+        mkdir -p temp_assets
+        gh release download Latest --dir temp_assets
+        
+        # 生成SHA1校验和文件
+        cd temp_assets
+        > sha1.txt
+        for file in *; do
+          if [ "$file" != "sha1.txt" ] && [ -f "$file" ]; then
+            sha1sum "$file" | awk '{print $2 " " $1}' >> sha1.txt
+          fi
+        done
+        
+        # 上传SHA1文件到release
+        gh release upload Latest sha1.txt --clobber
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  provenance:
+    needs: [goreleaser]
+    permissions:
+      actions: read
+      id-token: write
+      contents: write
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.10.0
+    with:
+      base64-subjects: ${{ needs.goreleaser.outputs.hashes }}
+      upload-assets: true
+      upload-tag-name: Latest
