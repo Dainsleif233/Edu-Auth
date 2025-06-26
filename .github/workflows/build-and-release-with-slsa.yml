@@ -36,27 +36,27 @@ jobs:
         COMMIT_MSG=$(git log -1 --pretty=%B)
         echo "message=$COMMIT_MSG" >> $GITHUB_OUTPUT
 
-    - name: Clean up existing Latest release and tag
+    - name: Clean up existing v0.0.0 release and tag
       run: |
         # 删除release（如果存在）
-        gh release delete Latest --yes 2>/dev/null || echo "Release Latest not found"
+        gh release delete v0.0.0 --yes 2>/dev/null || echo "Release v0.0.0 not found"
         
         # 强制删除远程标签
-        git push origin :refs/tags/Latest 2>/dev/null || echo "Remote tag Latest not found"
+        git push origin :refs/tags/v0.0.0 2>/dev/null || echo "Remote tag v0.0.0 not found"
         
         # 强制删除本地标签
-        git tag -d Latest 2>/dev/null || echo "Local tag Latest not found"
+        git tag -d v0.0.0 2>/dev/null || echo "Local tag v0.0.0 not found"
         
         # 等待确保GitHub API同步
         sleep 3
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Create and push Latest tag
+    - name: Create and push v0.0.0 tag
       run: |
         # 强制创建标签
-        git tag -f Latest
-        git push -f origin Latest
+        git tag -f v0.0.0
+        git push -f origin v0.0.0
 
     - name: Create release notes file
       run: |
@@ -82,7 +82,7 @@ jobs:
         
         # 下载刚发布的assets来生成hash
         mkdir -p temp_assets
-        gh release download Latest --dir temp_assets
+        gh release download v0.0.0 --dir temp_assets
         
         cd temp_assets
         HASHES=""
@@ -105,7 +105,7 @@ jobs:
       run: |
         # 下载所有release资产
         mkdir -p temp_assets
-        gh release download Latest --dir temp_assets
+        gh release download v0.0.0 --dir temp_assets
         
         # 生成SHA1校验和文件
         cd temp_assets
@@ -117,7 +117,7 @@ jobs:
         done
         
         # 上传SHA1文件到release
-        gh release upload Latest sha1.txt --clobber
+        gh release upload v0.0.0 sha1.txt --clobber
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -131,4 +131,4 @@ jobs:
     with:
       base64-subjects: ${{ needs.build.outputs.hashes }}
       upload-assets: true
-      upload-tag-name: Latest
+      upload-tag-name: v0.0.0

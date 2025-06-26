@@ -52,13 +52,13 @@ release:
     owner: "{{ .Env.GITHUB_REPOSITORY_OWNER }}"
     name: "{{ .Env.GITHUB_REPOSITORY_NAME }}"
 
-  name_template: "Latest"
+  name_template: "v0.0.0"
 
   replace_existing_draft: true
   target_commitish: "{{ .Commit }}"
 
   header: |
-    ## Latest Build
+    ## v0.0.0 Build
     
     **构建时间**: {{ .Date }}  
     **提交哈希**: {{ .ShortCommit }}
