@@ -52,17 +52,28 @@ release:
     owner: "{{ .Env.GITHUB_REPOSITORY_OWNER }}"
     name: "{{ .Env.GITHUB_REPOSITORY_NAME }}"
 
+  name_template: "Latest"
+
   replace_existing_draft: true
   target_commitish: "{{ .Commit }}"
 
   header: |
     ## Latest Build
     
-    构建时间: {{ .Date }}
-    提交哈希: {{ .ShortCommit }}
+    **构建时间**: {{ .Date }}  
+    **提交哈希**: {{ .ShortCommit }}
+    
+    ---
   
   footer: |
-    **完整变更日志**: https://github.com/{{ .Env.GITHUB_REPOSITORY }}/compare/{{ .PreviousTag }}...{{ .Tag }}
+    
+    ---
+    
+    ### 文件校验
+    请使用 `sha1.txt` 文件验证下载文件的完整性。
+    
+    ### SLSA Provenance
+    此版本包含 SLSA Level 3 构建证明文件，确保构建过程的安全性和可验证性。
 
 changelog:
   use: github
@@ -96,6 +107,9 @@ publishers:
       - GITHUB_TOKEN
     cmd: |
       gh release upload {{ .Tag }} {{ .ArtifactPath }}
+
+slsa:
+  enable: true
 
 dist: dist
 

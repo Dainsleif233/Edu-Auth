@@ -48,12 +48,16 @@ jobs:
         git tag Latest
         git push origin Latest
 
+    - name: Create release notes file
+      run: |
+        echo "${{ steps.commit.outputs.message }}" > release_notes.md
+
     - name: Run GoReleaser
       uses: goreleaser/goreleaser-action@v5
       with:
         distribution: goreleaser
         version: '~> v1'
-        args: release --clean --release-notes <(echo "${{ steps.commit.outputs.message }}")
+        args: release --clean --release-notes release_notes.md
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
