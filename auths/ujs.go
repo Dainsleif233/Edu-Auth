@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
-	"os"
 	"regexp"
 	"strconv"
 
@@ -43,7 +42,6 @@ func getHtml(client *http.Client) (*htmlResult, error) {
 	}
 	defer response.Body.Close()
 	bodyBytes, err := io.ReadAll(response.Body)
-	os.WriteFile("html.html", bodyBytes, 0644)
 	if err != nil {
 		return nil, err
 	}
