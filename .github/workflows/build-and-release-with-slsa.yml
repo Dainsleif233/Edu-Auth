@@ -10,15 +10,13 @@ permissions:
   contents: write
   id-token: write
   actions: read
-  attestations: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
     outputs:
       hashes: ${{ steps.hash.outputs.hashes }}
-      commit-message: ${{ steps.commit.outputs.message }}
-    
+      short-sha: ${{ steps.vars.outputs.short-sha }}
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -30,96 +28,45 @@ jobs:
       with:
         go-version: '1.24'
 
-    - name: Get commit message
-      id: commit
+    - name: Set variables
+      id: vars
       run: |
-        COMMIT_MSG=$(git log -1 --pretty=%B)
-        echo "message=$COMMIT_MSG" >> $GITHUB_OUTPUT
-
-    - name: Clean up existing v0.0.0 release and tag
-      run: |
-        # 删除release（如果存在）
-        gh release delete v0.0.0 --yes 2>/dev/null || echo "Release v0.0.0 not found"
-        
-        # 强制删除远程标签
-        git push origin :refs/tags/v0.0.0 2>/dev/null || echo "Remote tag v0.0.0 not found"
-        
-        # 强制删除本地标签
-        git tag -d v0.0.0 2>/dev/null || echo "Local tag v0.0.0 not found"
-        
-        # 等待确保GitHub API同步
-        sleep 3
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Create and push v0.0.0 tag
-      run: |
-        # 强制创建标签
-        git tag -f v0.0.0
-        git push -f origin v0.0.0
-
-    - name: Create release notes file
-      run: |
-        mkdir -p /tmp/release
-        echo "${{ steps.commit.outputs.message }}" > /tmp/release/release_notes.md
+        echo "short-sha=$(git rev-parse --short=7 HEAD)" >> $GITHUB_OUTPUT
+        echo "commit-msg=$(git log -1 --pretty=%B)" >> $GITHUB_OUTPUT
 
     - name: Run GoReleaser
       uses: goreleaser/goreleaser-action@v5
       with:
         distribution: goreleaser
-        version: '~> v2'
-        args: release --clean --release-notes /tmp/release/release_notes.md
+        version: latest
+        args: release --clean --snapshot
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
-        GITHUB_REPOSITORY_NAME: ${{ github.event.repository.name }}
+        SHORT_SHA: ${{ steps.vars.outputs.short-sha }}
+        COMMIT_MSG: ${{ steps.vars.outputs.commit-msg }}
 
-    - name: Generate artifact hashes for SLSA
+    - name: Calculate SHA1 hashes
       id: hash
       run: |
-        # 等待release创建完成
-        sleep 5
-        
-        # 下载刚发布的assets来生成hash
-        mkdir -p temp_assets
-        gh release download v0.0.0 --dir temp_assets
-        
-        cd temp_assets
-        HASHES=""
+        cd dist
+        echo "# SHA1 校验值" > sha1.txt
+        echo "" >> sha1.txt
         for file in edu-auth-*; do
           if [ -f "$file" ]; then
-            HASH=$(sha256sum "$file" | cut -d' ' -f1)
-            if [ -z "$HASHES" ]; then
-              HASHES="${file}:${HASH}"
-            else
-              HASHES="${HASHES}\n${file}:${HASH}"
-            fi
+            sha1sum "$file" >> sha1.txt
           fi
         done
-        
-        echo "hashes=$(echo -e "$HASHES" | base64 -w0)" >> $GITHUB_OUTPUT
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # 输出二进制文件的hash用于SLSA
+        sha1sum edu-auth-* | base64 -w0 > hashes.txt
+        echo "hashes=$(cat hashes.txt)" >> $GITHUB_OUTPUT
 
-    - name: Generate SHA1 checksums
-      run: |
-        # 下载所有release资产
-        mkdir -p temp_assets
-        gh release download v0.0.0 --dir temp_assets
-        
-        # 生成SHA1校验和文件
-        cd temp_assets
-        > sha1.txt
-        for file in *; do
-          if [ "$file" != "sha1.txt" ] && [ -f "$file" ]; then
-            sha1sum "$file" | awk '{print $2 " " $1}' >> sha1.txt
-          fi
-        done
-        
-        # 上传SHA1文件到release
-        gh release upload v0.0.0 sha1.txt --clobber
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: binaries
+        path: |
+          dist/edu-auth-*
+          dist/sha1.txt
 
   provenance:
     needs: [build]
@@ -127,8 +74,64 @@ jobs:
       actions: read
       id-token: write
       contents: write
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.10.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.9.0
     with:
-      base64-subjects: ${{ needs.build.outputs.hashes }}
+      base64-subjects: "${{ needs.build.outputs.hashes }}"
       upload-assets: true
-      upload-tag-name: v0.0.0
+
+  release:
+    needs: [build, provenance]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: binaries
+        path: ./dist
+
+    - name: Download provenance
+      uses: actions/download-artifact@v4
+      with:
+        name: "${{ needs.provenance.outputs.provenance-name }}"
+        path: ./dist
+
+    - name: Set variables
+      id: vars
+      run: |
+        echo "short-sha=$(git rev-parse --short=7 HEAD)" >> $GITHUB_OUTPUT
+        echo "commit-msg<<EOF" >> $GITHUB_OUTPUT
+        git log -1 --pretty=%B >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Create Release
+      uses: ncipollo/release-action@v1
+      with:
+        tag: "Edu-Auth-${{ steps.vars.outputs.short-sha }}"
+        name: "Edu-Auth-${{ steps.vars.outputs.short-sha }}"
+        body: |
+          ## 构建信息
+          
+          **Commit:** ${{ github.sha }}
+          **短哈希:** ${{ steps.vars.outputs.short-sha }}
+          
+          ## 更新日志
+          
+          ${{ steps.vars.outputs.commit-msg }}
+          
+          ## 文件说明
+          
+          - `edu-auth-*`: 各平台二进制可执行文件
+          - `*.intoto.jsonl`: SLSA Provenance证明文件
+          - `sha1.txt`: 文件SHA1校验值
+        files: |
+          dist/edu-auth-*
+          dist/*.intoto.jsonl
+          dist/sha1.txt
+        draft: false
+        prerelease: false
+        allowUpdates: true
+        token: ${{ secrets.GITHUB_TOKEN }}
