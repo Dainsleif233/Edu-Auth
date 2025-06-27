@@ -144,3 +144,4 @@ jobs:
         prerelease: false
         allowUpdates: true
         token: ${{ secrets.GITHUB_TOKEN }}
+        make_latest: true
