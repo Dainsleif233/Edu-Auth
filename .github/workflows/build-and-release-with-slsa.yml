@@ -20,22 +20,27 @@ jobs:
             goos: linux
             goarch: amd64
             name: edu-auth-linux-amd64
+            docker: false
           - os: ubuntu-latest
             goos: linux
             goarch: arm64
             name: edu-auth-linux-arm64
+            docker: true
           - os: macos-latest
             goos: darwin
             goarch: amd64
             name: edu-auth-macos-amd64
+            docker: false
           - os: macos-latest
             goos: darwin
             goarch: arm64
             name: edu-auth-macos-arm64
+            docker: false
           - os: windows-latest
             goos: windows
             goarch: amd64
             name: edu-auth-windows-amd64.exe
+            docker: false
     runs-on: ${{ matrix.os }}
     steps:
     - name: Checkout code
@@ -43,12 +48,43 @@ jobs:
       with:
         fetch-depth: 0
 
-    - name: Set up Go
+    - name: Set up QEMU
+      if: matrix.docker
+      uses: docker/setup-qemu-action@v3
+
+    - name: Set up Docker Buildx
+      if: matrix.docker
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build with Docker (ARM64)
+      if: matrix.docker
+      run: |
+        docker run --rm \
+          --platform linux/arm64 \
+          -v $PWD:/workspace \
+          -w /workspace \
+          golang:1.24-alpine \
+          sh -c "
+            apk add --no-cache gcc musl-dev pkgconfig
+            go mod tidy
+            go mod download
+            CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -ldflags='-s -w' -o ${{ matrix.name }} ./main.go
+          "
+
+    - name: Set up Go (Non-Docker)
+      if: "!matrix.docker"
       uses: actions/setup-go@v5
       with:
         go-version: '1.24'
 
-    - name: Build binary
+    - name: Install build dependencies (Linux)
+      if: "!matrix.docker && matrix.goos == 'linux'"
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-multilib
+
+    - name: Build binary (Non-Docker)
+      if: "!matrix.docker"
       env:
         GOOS: ${{ matrix.goos }}
         GOARCH: ${{ matrix.goarch }}
