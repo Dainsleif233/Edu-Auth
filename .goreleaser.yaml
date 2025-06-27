@@ -2,7 +2,7 @@ version: 2
 
 env:
   - GO111MODULE=on
-  - CGO_ENABLED=0
+  - CGO_ENABLED=1
 
 before:
   hooks:
@@ -14,19 +14,11 @@ builds:
     main: ./main.go
     binary: edu-auth
     env:
-      - CGO_ENABLED=0
+      - CGO_ENABLED=1
     goos:
       - linux
-      - windows
-      - darwin
     goarch:
       - amd64
-      - arm64
-    goarm:
-      - "7"
-    ignore:
-      - goos: windows
-        goarch: arm64
     flags:
       - -trimpath
     ldflags:
