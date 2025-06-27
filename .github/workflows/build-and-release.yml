@@ -1,4 +1,4 @@
-name: Build and Release with SLSA
+name: Build and Release
 
 on:
   push:
@@ -138,10 +138,6 @@ jobs:
             sha1sum "$file" >> sha1.txt
           fi
         done
-        
-        # 输出二进制文件的hash用于SLSA
-        sha1sum edu-auth-* | base64 -w0 > hashes.txt
-        echo "hashes=$(cat hashes.txt)" >> $GITHUB_OUTPUT
 
     - name: Upload collected artifacts
       uses: actions/upload-artifact@v4
@@ -151,19 +147,8 @@ jobs:
           dist/edu-auth-*
           dist/sha1.txt
 
-  provenance:
-    needs: [collect-and-hash]
-    permissions:
-      actions: read
-      id-token: write
-      contents: write
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
-    with:
-      base64-subjects: "${{ needs.collect-and-hash.outputs.hashes }}"
-      upload-assets: true
-
   release:
-    needs: [collect-and-hash, provenance]
+    needs: [collect-and-hash]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
@@ -174,12 +159,6 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: all-binaries
-        path: ./dist
-
-    - name: Download provenance
-      uses: actions/download-artifact@v4
-      with:
-        name: "${{ needs.provenance.outputs.provenance-name }}"
         path: ./dist
 
     - name: Set variables
@@ -193,13 +172,12 @@ jobs:
     - name: Create Release
       uses: ncipollo/release-action@v1
       with:
-        tag: "Edu-Auth-${{ steps.vars.outputs.short-sha }}"
+        tag: "v0.0.0-${{ steps.vars.outputs.short-sha }}"
         name: "Edu-Auth-${{ steps.vars.outputs.short-sha }}"
         body: |
           ## 构建信息
           
           **Commit:** ${{ github.sha }}
-          **短哈希:** ${{ steps.vars.outputs.short-sha }}
           
           ## 更新日志
           
@@ -208,7 +186,6 @@ jobs:
           ## 文件说明
           
           - `edu-auth-*`: 各平台二进制可执行文件
-          - `*.intoto.jsonl`: SLSA Provenance证明文件
           - `sha1.txt`: 文件SHA1校验值
           
           ## 支持的平台
@@ -218,7 +195,6 @@ jobs:
           - Windows (amd64)
         files: |
           dist/edu-auth-*
-          dist/*.intoto.jsonl
           dist/sha1.txt
         draft: false
         prerelease: false
