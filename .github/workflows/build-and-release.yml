@@ -139,7 +139,7 @@ jobs:
           - macOS (amd64, arm64)  
           - Windows (amd64)
         artifacts: |
-          dist/edu-auth-*
+          dist/edu-auth-*/edu-auth-*
         draft: false
         prerelease: false
         allowUpdates: true
