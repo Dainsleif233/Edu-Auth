@@ -2,6 +2,7 @@ version: 2
 
 env:
   - GO111MODULE=on
+  - CGO_ENABLED=1
 
 before:
   hooks:
@@ -12,6 +13,8 @@ builds:
   - id: edu-auth
     main: ./main.go
     binary: edu-auth
+    env:
+      - CGO_ENABLED=1
     goos:
       - linux
     goarch:
