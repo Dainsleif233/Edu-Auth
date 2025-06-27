@@ -45,8 +45,6 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
 
     - name: Set up QEMU
       if: matrix.docker
@@ -100,65 +98,14 @@ jobs:
         name: ${{ matrix.name }}
         path: ${{ matrix.name }}
 
-  collect-and-hash:
-    needs: [build]
-    runs-on: ubuntu-latest
-    outputs:
-      hashes: ${{ steps.hash.outputs.hashes }}
-      short-sha: ${{ steps.vars.outputs.short-sha }}
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: Set variables
-      id: vars
-      run: |
-        echo "short-sha=$(git rev-parse --short=7 HEAD)" >> $GITHUB_OUTPUT
-        echo "commit-msg=$(git log -1 --pretty=%B)" >> $GITHUB_OUTPUT
-
-    - name: Download all artifacts
-      uses: actions/download-artifact@v4
-      with:
-        path: ./binaries
-
-    - name: Collect binaries and calculate hashes
-      id: hash
-      run: |
-        mkdir -p dist
-        # 移动所有二进制文件到dist目录
-        find ./binaries -type f -name "edu-auth-*" -exec cp {} dist/ \;
-        
-        cd dist
-        echo "# SHA1 校验值" > sha1.txt
-        echo "" >> sha1.txt
-        for file in edu-auth-*; do
-          if [ -f "$file" ]; then
-            sha1sum "$file" >> sha1.txt
-          fi
-        done
-
-    - name: Upload collected artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: all-binaries
-        path: |
-          dist/edu-auth-*
-          dist/sha1.txt
-
   release:
-    needs: [collect-and-hash]
+    needs: [build]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-
-    - name: Download binaries
+    - name: Download Artifacts
       uses: actions/download-artifact@v4
       with:
-        name: all-binaries
         path: ./dist
 
     - name: Set variables
@@ -183,11 +130,6 @@ jobs:
           
           ${{ steps.vars.outputs.commit-msg }}
           
-          ## 文件说明
-          
-          - `edu-auth-*`: 各平台二进制可执行文件
-          - `sha1.txt`: 文件SHA1校验值
-          
           ## 支持的平台
           
           - Linux (amd64, arm64)
@@ -195,7 +137,6 @@ jobs:
           - Windows (amd64)
         artifacts: |
           dist/edu-auth-*
-          dist/sha1.txt
         draft: false
         prerelease: false
         allowUpdates: true
