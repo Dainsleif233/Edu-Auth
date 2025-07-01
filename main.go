@@ -53,12 +53,12 @@ func main() {
 		w.Header().Set("X-License", "AGPL-3.0")
 
 		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			http.Error(w, "Edu-Auth\nMethod not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 		err := r.ParseForm()
 		if err != nil {
-			http.Error(w, "Bad Request", http.StatusBadRequest)
+			http.Error(w, "Edu-Auth\nBad Request", http.StatusBadRequest)
 			return
 		}
 		login := r.FormValue("login")
@@ -69,15 +69,15 @@ func main() {
 
 		switch result {
 		case 0:
-			w.Write([]byte("EAP Success\n<h3>测试结果: <span style=\"color: green;\">OK，认证过程正常</span></h3>"))
+			w.Write([]byte("Edu-Auth\nEAP Success\n<h3>测试结果: <span style=\"color: green;\">OK，认证过程正常</span></h3>"))
 		case 1:
-			w.Write([]byte("EAP Failure"))
+			w.Write([]byte("Edu-Auth\nEAP Failure"))
 		case 2:
-			w.Write([]byte("illegal"))
+			w.Write([]byte("Edu-Auth\nillegal"))
 		case 3:
-			w.Write([]byte("error"))
+			w.Write([]byte("Edu-Auth\nerror"))
 		default:
-			http.Error(w, "Handler not found: "+id, http.StatusNotFound)
+			http.Error(w, "Edu-Auth\nHandler not found: "+id, http.StatusNotFound)
 		}
 	})
 
