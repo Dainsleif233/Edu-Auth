@@ -63,7 +63,7 @@ jobs:
           --platform ${{ matrix.platform }} \
           -v $PWD:/workspace \
           -w /workspace \
-          golang:1.24-alpine3.18 \
+          golang:1.24-alpine \
           sh -c "
             apk add --no-cache gcc musl-dev pkgconfig
             go mod tidy
