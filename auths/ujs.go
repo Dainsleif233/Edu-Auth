@@ -88,8 +88,6 @@ func needCaptcha(client *http.Client, login string) (bool, error) {
 
 func getSign(client *http.Client) (string, error) {
 
-	imgs := [10]string{"0.png", "1.png", "2.png", "3.png", "4.png", "5.png", "6.png", "7.png", "8.png", "9.png"}
-
 	var sign string
 	for range 5 {
 		url1 := "https://pass.ujs.edu.cn/cas/sliderCaptcha.do?_=" + utils.GetTimestamp(13).TimestampStr
@@ -103,7 +101,7 @@ func getSign(client *http.Client) (string, error) {
 			return "", err
 		}
 		bigImageNum := resp.BigImageNum
-		bgImage, err := assetFS.ReadFile("assets/ujs/" + imgs[bigImageNum])
+		bgImage, err := assetFS.ReadFile("assets/ujs/" + strconv.Itoa(bigImageNum) + ".png")
 		if err != nil {
 			return "", err
 		}
