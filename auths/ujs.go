@@ -102,16 +102,18 @@ func getSign(client *http.Client) (string, error) {
 		if err = json.NewDecoder(response.Body).Decode(&resp); err != nil {
 			return "", err
 		}
-		bigImage, err := base64.StdEncoding.DecodeString(resp.BigImage)
-		if err != nil {
-			return "", err
-		}
 		bigImageNum := resp.BigImageNum
 		bgImage, err := assetFS.ReadFile("assets/ujs/" + imgs[bigImageNum])
 		if err != nil {
 			return "", err
 		}
-		result, err := ddddGocr.SlideMatchWithByte(bigImage, bgImage, "comparison", "default")
+		bigImg := &ddddGocr.DdddGocrFile{
+			Base64: resp.BigImage,
+		}
+		bgImg := &ddddGocr.DdddGocrFile{
+			Data: bgImage,
+		}
+		result, err := ddddGocr.SlideMatch(bigImg, bgImg, "comparison", false)
 		if err != nil {
 			return "", err
 		}
